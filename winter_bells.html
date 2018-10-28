@@ -1,0 +1,58 @@
+<html>
+<header>
+    <meta charset="UTF-8">
+
+    <style>
+        #canvas {
+            border: 1px black solid;
+            cursor: crosshair;
+        }
+        
+        body{
+            /*background-color: lightblue;*/
+            background-color: black;
+        }
+
+        a {
+            color: #000;
+        }
+    </style>
+
+    <script type="text/javascript" src="anim.js"></script>
+    <script type="text/javascript" src="winter_bells.js"></script>
+</header>
+<body>
+
+<canvas tabindex="1" id="canvas" width="940" height="860"></canvas>
+<div>
+    <a href="javascript:void(0)" onclick="reset()">Reset</a>
+    <a href="javascript:void(0)" onclick="stop()">Stop</a>
+    <a href="javascript:void(0)" onclick="start()">Start</a>
+</div>
+<script>
+
+WinterBellsGame.init(document.getElementById("canvas"));
+
+window.onload = function()
+{
+    start();
+}
+
+function start()
+{
+    WinterBellsGame.start();
+}
+
+function stop()
+{
+    WinterBellsGame.stop();
+}
+
+function reset()
+{
+    WinterBellsGame.reset();
+}
+
+</script>
+</body>
+</html>
