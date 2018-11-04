@@ -1,3 +1,24 @@
+var debug = false;
+
+var ItemPool = function()
+{
+    this.index = 0;
+    this.items = [];
+}
+
+ItemPool.prototype.add = function(item)
+{
+    this.items.push(item)
+}
+
+ItemPool.prototype.get_next = function()
+{
+    var item = this.items[this.index];
+    this.index += 1;
+    if (this.index > this.items.length)
+        this.index = 0;
+    return item;
+}
 
 var Player = function(world)
 {
@@ -56,8 +77,9 @@ Player.prototype.draw = function(ctx)
 
 Player.prototype.boost = function()
 {
-    this.dy = Math.min(-16, this.dy);
-    this.dy -= 2;
+    //this.dy = Math.min(-16, this.dy);
+    //this.dy -= 2;
+    this.power_boost(18); //16);
 }
 
 Player.prototype.power_boost = function(val)
@@ -77,13 +99,17 @@ Player.prototype.try_jump = function()
     if (this.jumping)
         return;
 
+        
+    //new Audio("jump.mp3").play();
+
     this.jump();
 }
 
 Player.prototype.setTarget = function(x)
 {
+    var multi = this.jumping ? 0.05 : 0.05;
     if (this.x < x || this.x > x)
-        this.dx = (x - this.x) * 0.03;
+        this.dx = (x - this.x) * multi;
     else
         this.dx = 0;
 }
@@ -133,21 +159,40 @@ Pickup.prototype.mark_as_special = function()
 {
     this.special = true;
     this.image.src = "pickup_special.png";
+
+    this.anim = new CoreAnim.Animation("pickup_special_anim.png", 20, 5, 4);
+    this.anim.playAnimation(0, 4);
 }
 
 Pickup.prototype.mark_as_champion = function()
 {
     this.chapion = true;
     this.image.src = "pickup_champion.png";
+
+    this.anim = new CoreAnim.Animation("pickup_champion_anim.png", 50, 10, 4);
+    this.anim.playAnimation(0, 9);
 }
 
 Pickup.prototype.draw = function(ctx)
 {
+    if (debug)
+        ctx.strokeRect(this.x - 10, this.y -10, 20, 20);
+
+    if (this.special)
+    {
+        this.anim.paint(ctx, this.x - 10, this.y - 10);
+        return;
+    }
+        
+    if (this.chapion)
+    {
+        this.anim.paint(ctx, this.x - 25, this.y - 25);
+        return;
+    }
+
     ctx.save();
     ctx.translate(this.x, this.y);
-
     ctx.drawImage(this.image, -10, -10);
-
     ctx.restore();
 }
 
@@ -155,6 +200,8 @@ var Stuff = function(type)
 {
     this.x = -1000;
     this.y = -1000;
+
+    this.dx = 0;
 
     this.image = new Image();
     this.set_type(type);
@@ -168,12 +215,19 @@ Stuff.prototype.set_type = function(type)
         case 0:
             var id = Math.floor(Math.random() * 3) + 1;
             this.image.src = "cloud_" + id + ".png";
+            this.dx = (Math.random() - 0.5);
             break;
         case 1:
-        var id = Math.floor(Math.random() * 3) + 1;
+            var id = Math.floor(Math.random() * 3) + 1;
             this.image.src = "star_" + id + ".png";
+            this.dx = 0;
             break;
     } 
+}
+
+Stuff.prototype.update = function()
+{
+    this.x += this.dx;
 }
 
 Stuff.prototype.draw = function(ctx)
@@ -182,6 +236,89 @@ Stuff.prototype.draw = function(ctx)
     ctx.translate(this.x, this.y);
     ctx.drawImage(this.image, -10, -10);
     ctx.restore();
+}
+
+
+var Explode = function()
+{
+    this.x = -1000;
+    this.y = -1000;
+
+    this.particles = [];
+    for (var i = 0; i != 100; ++i)
+    {
+        this.particles.push({
+            "x" : this.x,
+            "y" : this.y,
+            "dx" : 0,
+            "dy" : 0,
+            "life" : 100
+        });
+    }
+}
+
+function explode_colour()
+{
+    return "rgb(255, " + (Math.random() * 255) + ", 0)";
+}
+
+function explode_smoke_colour()
+{
+    var shade =  Math.random() * 100;
+    return "rgb(" + shade + "," + shade + "," + shade + ")";
+}
+
+Explode.prototype.reset = function(x, y, scale)
+{
+    this.x = x;
+    this.y = y;
+
+    for (var part of this.particles)
+    {
+        part.x = x;
+        part.y = y;
+        part.life = 1;
+        part.size = Math.random() * scale;
+        part.dx = (3.3 * Math.random()) - 3.3;
+        part.dy = (Math.random() * -5) - 10;
+        part.colour = explode_colour();
+    }
+}
+
+Explode.prototype.update = function()
+{
+    for (var part of this.particles)
+    {
+        part.x += part.dx;
+        part.y += part.dy;
+        part.dy += 0.2;
+        part.life -= 0.01;
+        part.life = Math.max(0, part.life);
+
+        if (part.life < 0.9 && Math.random() < 0.1)
+            part.colour = explode_smoke_colour();
+    }
+}
+
+Explode.prototype.draw = function(ctx)
+{
+    //ctx.save();
+    //ctx.translate(this.x, this.y);
+    //ctx.strokeRect(this.x, this.y, 100, 100);
+    
+    for (var part of this.particles)
+    {
+        ctx.globalAlpha = part.life;
+        ctx.fillStyle = part.colour;
+        //ctx.fillRect(part.x, part.y, part.life * 15, part.life * 15);
+
+        ctx.beginPath();
+        ctx.arc(part.x, part.y, part.size * part.life, 0, 2 * Math.PI, false);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    //ctx.restore();
 }
 
 function collison(bodyA, bodyB)
@@ -210,10 +347,6 @@ var WinterBellsGame = (function() {
     var canvas = null;
     var ctx = null;
 
-    var elemLeft = null;
-    var elemTop = null;
-    var elemBottom = null;
-
     var updateInterval = null;
     var drawInterval = null;
 
@@ -226,7 +359,7 @@ var WinterBellsGame = (function() {
     var mx = 0;
     var my = 0;
     
-
+    var score = 0;
     var highscore = localStorage.highscore;
 
     function init_player()
@@ -243,25 +376,44 @@ var WinterBellsGame = (function() {
     var hvari = 100;
     var hhvari = hvari / 2
 
+    var explodeIndex = 0;
+    var explodes = [];
+    for (var i = 0; i != 10; ++i)
+        explodes.push(new Explode(0,0));
+    
+    function next_explode()
+    {
+        var next = explodes[explodeIndex];
+        explodeIndex += 1;
+        if (explodeIndex > explodes.length)
+            explodeIndex = 0;
+
+        return next;
+    }
+
     function relocate_pickup(pickup)
     {
-        prddy += 0.001;
-        prdy += prddy;
-        prdy = Math.min(prdy, 1500);
+        //prddy += 0.001;
+        //prdy += prddy;
+        //prdy = Math.min(prdy, 1500);
+
+        prdy -= (score / 10000);
+        prdy = Math.min(prdy, 1280);
 
         prx += 0.1;
 
-        if (Math.random() > 0.5)
+        if (pickup.chapion || pickup.special)
         {
             pry -= prdy;
 
-            pickup.x = 50 + Math.abs(Math.sin(prx) * (world.width - 100)) + ((Math.random() * hvari) - hhvari);
+            pickup.x = 50 + (Math.random() * (world.width - 100)); 
             pickup.y = pry;
         }
         else
         {
-            pry -= (prdy / 2)
-            pickup.x = 50 + Math.abs(Math.cos(prx) * (world.width - 100)) + ((Math.random() * hvari) - hhvari);
+            pry -= prdy;
+
+            pickup.x = 50 + (Math.sin(prx) * ((world.width - 100) / 2)) + ((world.width - 100) / 2); // + ((Math.random() * hvari) - hhvari);
             pickup.y = pry;
         }
     }
@@ -269,13 +421,33 @@ var WinterBellsGame = (function() {
     function init_pickups(count)
     {
         count = count || 100;
+
+        prx = 0;
+        pry = 0;
+    
+        prdy = 100;
+        prddy = 1;
+    
+        hvari = 100;
+        hhvari = hvari / 2
+
         pickups = [];
         for (var i = 0; i < count; ++i)
         {
-            var pickup = new Pickup(-100, -100); //new Pickup(Math.random() * world.width, world.height + offsetY + i * -100)
+            var pickup = new Pickup(-100, -100);
             
-            if (i % 10 == 0)
-                pickup.mark_as_special();
+            if (debug)
+            {
+                if (i % 10 == 0)
+                    pickup.mark_as_champion();
+                else if (i % 5 == 0)
+                    pickup.mark_as_special();
+            }
+            else
+            {
+                if (i % 10 == 0)
+                    pickup.mark_as_special();
+            }
                 
             relocate_pickup(pickup);
             pickups.push(pickup);
@@ -301,6 +473,9 @@ var WinterBellsGame = (function() {
 
     function update()
     {
+        for (var explode of explodes)
+            explode.update();
+
         player.setTarget(mx);
         player.update();
 
@@ -310,14 +485,37 @@ var WinterBellsGame = (function() {
 
             if (collison(player, pickup))
             {
+                var exp = next_explode();
+                exp.reset(pickup.x, pickup.y, (pickup.chapion || pickup.special) ? 50 : 20);
+
                 relocate_pickup(pickup);
 
                 if (pickup.chapion)
+                {
+                    score -= 1000;
+                    var aud = new Audio("explode.m4a");
+                    aud.volume = 1;
+                    aud.play();
+              
                     player.power_boost(50);
+                }
                 else if (pickup.special)
+                {
+                    score -= 100;
+                    var aud = new Audio("explode.m4a");
+                    aud.volume = 0.5;
+                    aud.play();
                     player.power_boost(30);
+                }
                 else
+                {
+                    score -= 10;
+                    //var aud = new Audio("dong3.ogg");
+                    var aud = new Audio("explode.m4a");
+                    aud.volume = 0.2;
+                    aud.play();
                     player.boost();
+                }
 
                 player.jumping = false;
             }
@@ -331,30 +529,43 @@ var WinterBellsGame = (function() {
         for (var i = 0; i != stuffs.length; ++i)
         {
             var stuff = stuffs[i];
+            stuff.update();
 
-            if (stuff.y > (player.y + world.height))
+            if (player.dy < 0)
             {
-                stuff.x = Math.random() * world.width;
-                stuff.y = player.y - world.height - (Math.random() * world.height);
-
-                if (this.type != 1 && player.y < -150000 && Math.random() < 0.5)
+                if (stuff.y > (player.y + world.height))
                 {
-                    stuff.set_type(1);
+                    stuff.x = Math.random() * world.width;
+                    stuff.y = player.y - world.height - (Math.random() * world.height);
+
+                    // TODO sattellite / populate in reverse?
+                    if (stuff.type != 1 && player.y < -150000 && Math.random() < 0.5)
+                        stuff.set_type(1);
                 }
             }
+            else
+            {
+                if (stuff.y < (player.y - world.height) || stuff.y > (player.y + world.height))
+                {
+                    stuff.x = Math.random() * world.width;
+                    stuff.y = player.y + world.height + (Math.random() * world.height);
 
-            
+                    if (stuff.type == 1 && player.y > -150000)
+                        stuff.set_type(0);
+                }
+            }
         }
 
-        highscore = Math.min(highscore, player.y);
+        highscore = Math.min(highscore, score);
         localStorage.highscore = highscore;
+
+        draw();
     }
 
     function hheight()
     {
-        return world.height / 2;
+        return Math.floor(world.height / 2);
     }
-
 
     var offsetY = 0;
     var gradient = null;
@@ -380,10 +591,14 @@ var WinterBellsGame = (function() {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, offsetY, world.width, world.height);
         // -
-        
-        world.draw(ctx);
+    
         for (var stuff of stuffs)
             stuff.draw(ctx);
+        
+        world.draw(ctx);
+
+        for (var explode of explodes)
+        explode.draw(ctx);
 
         for (var pickup of pickups)
             pickup.draw(ctx);
@@ -393,7 +608,8 @@ var WinterBellsGame = (function() {
         ctx.translate(0, (offsetY - player.y) + hheight());
         offsetY = player.y - hheight();
 
-        ctx.save();
+        
+        //ctx.save();
 
         ctx.fillStyle = "#FFF";
         ctx.strokeStyle = "#000";
@@ -407,16 +623,20 @@ var WinterBellsGame = (function() {
         ctx.fillText("High Score\n" + Math.abs(highscore).toFixed(0), 10, ytextset);
 
         ctx.textAlign = "right"; 
-        ctx.strokeText("Height\n" + Math.abs(player.y).toFixed(0), world.width - 10, ytextset);
-        ctx.fillText("Height\n" + Math.abs(player.y).toFixed(0), world.width - 10, ytextset);
-        //ctx.fillText("offsetY = " + prdy.toFixed(0), 10, player.y - hheight() + 30);
+        ctx.strokeText("Score\n" + Math.abs(score).toFixed(0), world.width - 10, ytextset);
+        ctx.fillText("Score\n" + Math.abs(score).toFixed(0), world.width - 10, ytextset);
 
-        ctx.textAlign = "center"; 
-        ctx.strokeText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
-        ctx.fillText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
-        
-        ctx.restore();
+        if (debug)
+        {
+            ctx.textAlign = "center"; 
+            ctx.strokeText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
+            ctx.fillText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
+        }
+
+        //ctx.restore();
     }
+
+    var running = true;
     
     return {
         init : function(canvasIn)
@@ -424,23 +644,24 @@ var WinterBellsGame = (function() {
             canvas = canvasIn;
             ctx = canvas.getContext('2d');
 
-            elemLeft = canvas.offsetLeft;
-            elemTop = canvas.offsetTop;
-            elemBottom = canvas.height;
-
             world = new World();
             world.width = canvas.width;
             world.height = canvas.height;
 
+            var jumpSound = new Audio("jump.m4a");
+            jumpSound.volume = 0.5;
+
             canvas.addEventListener("mousedown", function()
             {
+                if (!player.jumping)
+                    jumpSound.play();
                 player.try_jump();
             });
 
             canvas.addEventListener("mousemove", function(event)
             {
-                mx = event.pageX - elemLeft;
-                //var my = event.pageY - elemTop;
+                mx = event.pageX - canvas.offsetLeft;
+                my = event.pageY - canvas.offsetTop;
             });
 
             canvas.addEventListener("keydown", function(event)
@@ -449,8 +670,24 @@ var WinterBellsGame = (function() {
                     player.boost();
                 else if (event.key == "b")
                     player.y = -150000;
+                else if (event.key == "c")
+                    canvas.style.cursor = canvas.style.cursor == "none" ? "crosshair" : "none";
+                else if (event.key == "r")
+                    reset();
+                else if (event.key == "d")
+                {
+                    highscore = 0;
+                    debug = !debug;
+                }
+                else if (event.key == "p")
+                {
+                    if (running)
+                        stop();
+                    else
+                        start();
+                }
 
-                //console.log(event);
+                console.log(event);
             });
 
             init_player();
@@ -462,14 +699,17 @@ var WinterBellsGame = (function() {
             clearInterval(updateInterval);
             updateInterval = setInterval(update, 18);
 
-            clearInterval(drawInterval);
-            drawInterval = setInterval(draw, 18);
+            //clearInterval(drawInterval);
+            //drawInterval = setInterval(draw, 18);
+
+            running = true;
         },
 
         stop : function()
         {
+            running = false;
             clearInterval(updateInterval);
-            clearInterval(drawInterval);
+            //clearInterval(drawInterval);
         },
 
         reset : function()
@@ -477,7 +717,6 @@ var WinterBellsGame = (function() {
             init_player();
             init_pickups();
             init_stuff();
-            highscore = 0;
             draw();
         }
     };

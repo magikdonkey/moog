@@ -7,6 +7,12 @@
             border: 1px black solid;
             cursor: crosshair;
         }
+
+        .center {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
         
         body{
             /*background-color: lightblue;*/
@@ -23,7 +29,9 @@
 </header>
 <body>
 
-<canvas tabindex="1" id="canvas" width="940" height="860"></canvas>
+<canvas class="center" tabindex="1" id="canvas" width="900" height="860"></canvas>
+
+
 <div>
     <a href="javascript:void(0)" onclick="reset()">Reset</a>
     <a href="javascript:void(0)" onclick="stop()">Stop</a>

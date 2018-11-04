@@ -41,8 +41,8 @@ var CoreAnim = (function () {
         
         if (this.currentFrame == this.finalFrame || this.currentFrame < 0) {
             this.currentFrame = 0;
-            clearInterval(this.animationInterval);
-            this.animationInterval = 0;
+            //clearInterval(this.animationInterval);
+            //this.animationInterval = 0;
         }
 
         this.currentFrame += this.frameIncrement;
