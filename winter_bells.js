@@ -1,25 +1,5 @@
 var debug = false;
 
-var ItemPool = function()
-{
-    this.index = 0;
-    this.items = [];
-}
-
-ItemPool.prototype.add = function(item)
-{
-    this.items.push(item)
-}
-
-ItemPool.prototype.get_next = function()
-{
-    var item = this.items[this.index];
-    this.index += 1;
-    if (this.index > this.items.length)
-        this.index = 0;
-    return item;
-}
-
 var Player = function(world)
 {
     this.x = 0;
@@ -41,7 +21,31 @@ var Player = function(world)
     this.image_boost = new Image();
     this.image_boost.src = "player_boost.png";
 
-    //TODO anim.js ify
+    this.jumpSound = new Audio("jump.ogg");
+    this.jumpSound.volume = 0.5;
+
+    this.reset_part = function(part, x, y)
+    {
+        part.x = x;
+        part.y = y;
+        part.life = 1;
+        part.size = Math.random() * 10;
+        part.dx = (3.3 * Math.random()) - 3.3;
+        part.dy = (Math.random() * -5);
+        
+        var shade =  155 + (Math.random() * 100);
+        part.colour =  "rgb(" + shade + "," + shade + "," + shade + ")";
+    }
+
+    this.particles = [];
+    for (var i = 0; i != 30; ++i)
+    {
+        var part = {};
+
+        this.reset_part(part, -1000, -1000);
+
+        this.particles.push(part)
+    }
 }
 
 Player.prototype.update = function()
@@ -51,19 +55,31 @@ Player.prototype.update = function()
     this.x += this.dx;
     this.y += this.dy;
     
-
     if (this.y + this.height > 0)
     {
         this.y = -this.height;
         this.dy *= -0.3;
+        this.dy = Math.max(this.dy, -50);
         this.jumping = false;
     }
+
+    for (var part of this.particles)
+    {
+        part.x += part.dx;
+        part.y += part.dy;
+        part.dy += 0.01;
+        part.life -= 0.01;
+        part.life = Math.max(part.life, 0);
+    }
+    
+    this.x = Math.round(this.x);
+    this.y = Math.round(this.y);
 }
 
 Player.prototype.draw = function(ctx)
 {
     ctx.save()
-    ctx.translate(this.x, this.y);
+    ctx.translate(Math.round(this.x), Math.round(this.y));
     //ctx.fillStyle = this.jumping ? "rgb(0,0,255)" : "rgb(0,0,0)";
     //ctx.fillRect(-10, -10, 20, 20);
     //ctx.strokeRect(-10, -10, 20, 20);
@@ -73,13 +89,21 @@ Player.prototype.draw = function(ctx)
         ctx.drawImage(this.image, -10, -10);
 
     ctx.restore();
+
+    for (var part of this.particles)
+    {
+        ctx.globalAlpha = part.life;
+        ctx.fillStyle = part.colour;
+        ctx.beginPath();
+        ctx.arc(Math.round(part.x), Math.round(part.y), part.size * part.life, 0, 2 * Math.PI, false);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 }
 
 Player.prototype.boost = function()
 {
-    //this.dy = Math.min(-16, this.dy);
-    //this.dy -= 2;
-    this.power_boost(18); //16);
+    this.power_boost(18);
 }
 
 Player.prototype.power_boost = function(val)
@@ -94,13 +118,15 @@ Player.prototype.jump = function()
     this.jumping = true;
 }
 
+// User input jump (capped)
 Player.prototype.try_jump = function()
 {
     if (this.jumping)
         return;
 
-        
-    //new Audio("jump.mp3").play();
+    this.jumpSound.play();
+    for (var part of this.particles)
+        this.reset_part(part, this.x, this.y);
 
     this.jump();
 }
@@ -119,6 +145,9 @@ var World = function()
     this.width = 0;
     this.height = 0;
 
+    this.image = new Image();
+    this.image.src = "background.png";
+
 }
 
 World.prototype.draw = function(ctx)
@@ -126,8 +155,9 @@ World.prototype.draw = function(ctx)
     ctx.save();
     ctx.translate(0, 0);
 
-    ctx.fillStyle = "rgb(0,255,0)";
-    ctx.fillRect(0, -10, canvas.width, 1000);
+    //ctx.fillStyle = "rgb(0,255,0)";
+    //ctx.fillRect(0, -10, canvas.width, 1000);
+    ctx.drawImage(this.image, 0, -443);
 
     // ctx.fillStyle = "rgb(0,0,0)";
     // var offset = 0;
@@ -145,6 +175,13 @@ var Pickup = function(x, y)
     this.x = x;
     this.y = y;
 
+    this.dy = 0;
+    // this.dy = Math.random() / 5;
+    // var self = this;
+    // setInterval(function() {
+    //     self.dy *= -1;
+    // }, Math.floor(Math.random() * 500) + 500);
+
     this.width = 20;
     this.height = 20;
 
@@ -160,8 +197,8 @@ Pickup.prototype.mark_as_special = function()
     this.special = true;
     this.image.src = "pickup_special.png";
 
-    this.anim = new CoreAnim.Animation("pickup_special_anim.png", 20, 5, 4);
-    this.anim.playAnimation(0, 4);
+    this.anim = new CoreAnim.Animation("pickup_special_anim.png", 20, 20, 15);
+    this.anim.playAnimation(0, 19);
 }
 
 Pickup.prototype.mark_as_champion = function()
@@ -173,10 +210,26 @@ Pickup.prototype.mark_as_champion = function()
     this.anim.playAnimation(0, 9);
 }
 
+Pickup.prototype.set_pos = function(x, y)
+{
+    this.x = x;
+    this.y = y;
+}
+
+Pickup.prototype.update = function()
+{
+    this.y += this.dy;
+}
+
 Pickup.prototype.draw = function(ctx)
 {
     if (debug)
+    {
+        ctx.strokeStyle = "#FFF";
         ctx.strokeRect(this.x - 10, this.y -10, 20, 20);
+        ctx.strokeStyle = "#000";
+        ctx.strokeRect(this.x - 12, this.y -12, 24, 24);
+    }
 
     if (this.special)
     {
@@ -238,89 +291,6 @@ Stuff.prototype.draw = function(ctx)
     ctx.restore();
 }
 
-
-var Explode = function()
-{
-    this.x = -1000;
-    this.y = -1000;
-
-    this.particles = [];
-    for (var i = 0; i != 100; ++i)
-    {
-        this.particles.push({
-            "x" : this.x,
-            "y" : this.y,
-            "dx" : 0,
-            "dy" : 0,
-            "life" : 100
-        });
-    }
-}
-
-function explode_colour()
-{
-    return "rgb(255, " + (Math.random() * 255) + ", 0)";
-}
-
-function explode_smoke_colour()
-{
-    var shade =  Math.random() * 100;
-    return "rgb(" + shade + "," + shade + "," + shade + ")";
-}
-
-Explode.prototype.reset = function(x, y, scale)
-{
-    this.x = x;
-    this.y = y;
-
-    for (var part of this.particles)
-    {
-        part.x = x;
-        part.y = y;
-        part.life = 1;
-        part.size = Math.random() * scale;
-        part.dx = (3.3 * Math.random()) - 3.3;
-        part.dy = (Math.random() * -5) - 10;
-        part.colour = explode_colour();
-    }
-}
-
-Explode.prototype.update = function()
-{
-    for (var part of this.particles)
-    {
-        part.x += part.dx;
-        part.y += part.dy;
-        part.dy += 0.2;
-        part.life -= 0.01;
-        part.life = Math.max(0, part.life);
-
-        if (part.life < 0.9 && Math.random() < 0.1)
-            part.colour = explode_smoke_colour();
-    }
-}
-
-Explode.prototype.draw = function(ctx)
-{
-    //ctx.save();
-    //ctx.translate(this.x, this.y);
-    //ctx.strokeRect(this.x, this.y, 100, 100);
-    
-    for (var part of this.particles)
-    {
-        ctx.globalAlpha = part.life;
-        ctx.fillStyle = part.colour;
-        //ctx.fillRect(part.x, part.y, part.life * 15, part.life * 15);
-
-        ctx.beginPath();
-        ctx.arc(part.x, part.y, part.size * part.life, 0, 2 * Math.PI, false);
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    //ctx.restore();
-}
-
 function collison(bodyA, bodyB)
 {
     var AminX = bodyA.x;
@@ -360,12 +330,8 @@ var WinterBellsGame = (function() {
     var my = 0;
     
     var score = 0;
-    var highscore = localStorage.highscore;
-
-    function init_player()
-    {
-        player = new Player(world);
-    }
+    var highscore = !Number.isNaN(localStorage.highscore) ? localStorage.highscore : 0;
+    var maxSpeed = !Number.isNaN(localStorage.maxSpeed) ? localStorage.maxSpeed : 0;
 
     var prx = 0;
     var pry = 0;
@@ -376,46 +342,51 @@ var WinterBellsGame = (function() {
     var hvari = 100;
     var hhvari = hvari / 2
 
-    var explodeIndex = 0;
-    var explodes = [];
-    for (var i = 0; i != 10; ++i)
-        explodes.push(new Explode(0,0));
-    
-    function next_explode()
-    {
-        var next = explodes[explodeIndex];
-        explodeIndex += 1;
-        if (explodeIndex > explodes.length)
-            explodeIndex = 0;
+    var explodes = new ItemPool(10, Explode);
 
-        return next;
+    var status = { "message" : "" };
+
+
+    // draw
+    var offsetY = 0;
+    var gradient = null;
+
+    function init_player()
+    {
+        score = 0;
+        player = new Player(world);
+    }
+
+    function clear_status()
+    {
+        status.message = "";
+    }
+
+    function show_status(message)
+    {
+        if (message == status.message)
+            return;
+        
+        status.message = message;
+
+        setTimeout(clear_status, 2000);
     }
 
     function relocate_pickup(pickup)
     {
-        //prddy += 0.001;
-        //prdy += prddy;
-        //prdy = Math.min(prdy, 1500);
-
         prdy -= (score / 10000);
         prdy = Math.min(prdy, 1280);
 
         prx += 0.1;
+        pry -= prdy;
 
+        var nx = 0;
         if (pickup.chapion || pickup.special)
-        {
-            pry -= prdy;
-
-            pickup.x = 50 + (Math.random() * (world.width - 100)); 
-            pickup.y = pry;
-        }
+            nx = 50 + (Math.random() * (world.width - 100)); 
         else
-        {
-            pry -= prdy;
+            nx = 50 + (Math.sin(prx) * ((world.width - 100) / 2)) + ((world.width - 100) / 2);
 
-            pickup.x = 50 + (Math.sin(prx) * ((world.width - 100) / 2)) + ((world.width - 100) / 2); // + ((Math.random() * hvari) - hhvari);
-            pickup.y = pry;
-        }
+        pickup.set_pos(nx, pry)
     }
 
     function init_pickups(count)
@@ -473,8 +444,7 @@ var WinterBellsGame = (function() {
 
     function update()
     {
-        for (var explode of explodes)
-            explode.update();
+        explodes.update();
 
         player.setTarget(mx);
         player.update();
@@ -482,38 +452,32 @@ var WinterBellsGame = (function() {
         for (var i = 0; i != pickups.length; ++i)
         {
             var pickup = pickups[i];
+            pickup.update();
 
             if (collison(player, pickup))
             {
-                var exp = next_explode();
-                exp.reset(pickup.x, pickup.y, (pickup.chapion || pickup.special) ? 50 : 20);
+                var exp = explodes.get_next();
+                var expX = pickup.x;
+                var expY = pickup.y;
 
                 relocate_pickup(pickup);
 
                 if (pickup.chapion)
                 {
                     score -= 1000;
-                    var aud = new Audio("explode.m4a");
-                    aud.volume = 1;
-                    aud.play();
-              
+                    exp.show(expX, expY, 100);
                     player.power_boost(50);
                 }
                 else if (pickup.special)
                 {
                     score -= 100;
-                    var aud = new Audio("explode.m4a");
-                    aud.volume = 0.5;
-                    aud.play();
+                    exp.show(expX, expY, 50);
                     player.power_boost(30);
                 }
                 else
                 {
                     score -= 10;
-                    //var aud = new Audio("dong3.ogg");
-                    var aud = new Audio("explode.m4a");
-                    aud.volume = 0.2;
-                    aud.play();
+                    exp.show(expX, expY, 20);
                     player.boost();
                 }
 
@@ -530,6 +494,9 @@ var WinterBellsGame = (function() {
         {
             var stuff = stuffs[i];
             stuff.update();
+
+            if (Math.abs(player.dy) < 5)
+                continue;
 
             if (player.dy < 0)
             {
@@ -559,6 +526,13 @@ var WinterBellsGame = (function() {
         highscore = Math.min(highscore, score);
         localStorage.highscore = highscore;
 
+        if (player.dy < maxSpeed && player.dy < -50)
+        {
+            show_status("Speed record! (" + Math.abs(player.dy).toFixed(0) + ")");
+            maxSpeed = Math.min(maxSpeed, player.dy);
+            localStorage.maxSpeed = maxSpeed;
+        }
+
         draw();
     }
 
@@ -566,9 +540,6 @@ var WinterBellsGame = (function() {
     {
         return Math.floor(world.height / 2);
     }
-
-    var offsetY = 0;
-    var gradient = null;
 
     function draw()
     {
@@ -591,24 +562,21 @@ var WinterBellsGame = (function() {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, offsetY, world.width, world.height);
         // -
-    
         for (var stuff of stuffs)
             stuff.draw(ctx);
         
         world.draw(ctx);
 
-        for (var explode of explodes)
-        explode.draw(ctx);
+        explodes.draw(ctx);
 
         for (var pickup of pickups)
             pickup.draw(ctx);
 
-        player.draw(ctx);
-
         ctx.translate(0, (offsetY - player.y) + hheight());
         offsetY = player.y - hheight();
-
         
+        player.draw(ctx);
+
         //ctx.save();
 
         ctx.fillStyle = "#FFF";
@@ -632,6 +600,19 @@ var WinterBellsGame = (function() {
             ctx.strokeText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
             ctx.fillText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
         }
+        
+        ctx.textAlign = "center";
+        ctx.font = '20px Arial'
+        
+        var val = player.dy;
+        ctx.strokeText(Math.abs(val).toFixed(0) + " (" + Math.abs(maxSpeed).toFixed(0) + ")", world.width / 2, ytextset);
+        ctx.fillText(Math.abs(val).toFixed(0) + " (" + Math.abs(maxSpeed).toFixed(0) + ")", world.width / 2, ytextset);
+
+        if (status.message)
+        {
+            ctx.strokeText(status.message, world.width / 2, ytextset + world.height - 40);
+            ctx.fillText(status.message, world.width / 2, ytextset + world.height - 40);
+        }
 
         //ctx.restore();
     }
@@ -648,17 +629,12 @@ var WinterBellsGame = (function() {
             world.width = canvas.width;
             world.height = canvas.height;
 
-            var jumpSound = new Audio("jump.m4a");
-            jumpSound.volume = 0.5;
-
             canvas.addEventListener("mousedown", function()
             {
-                if (!player.jumping)
-                    jumpSound.play();
                 player.try_jump();
             });
 
-            canvas.addEventListener("mousemove", function(event)
+            window.addEventListener("mousemove", function(event)
             {
                 mx = event.pageX - canvas.offsetLeft;
                 my = event.pageY - canvas.offsetTop;
@@ -667,13 +643,30 @@ var WinterBellsGame = (function() {
             canvas.addEventListener("keydown", function(event)
             {
                 if (event.key == " ")
-                    player.boost();
+                    player.try_jump();
                 else if (event.key == "b")
                     player.y = -150000;
                 else if (event.key == "c")
                     canvas.style.cursor = canvas.style.cursor == "none" ? "crosshair" : "none";
                 else if (event.key == "r")
+                {
+                    if (event.altKey)
+                    {
+                        maxSpeed = 0;
+                        localStorage.maxSpeed = 0;
+                    }
+                    
                     reset();
+                }
+                else if (event.key == "l")
+                    player.dy = -120;
+                else if (event.key == "v")
+                {
+                    console.log("player y  " + player.y);
+                    console.log("player dy " + player.dy);
+                    console.log("prdy      " + prdy);
+
+                }
                 else if (event.key == "d")
                 {
                     highscore = 0;
@@ -687,12 +680,14 @@ var WinterBellsGame = (function() {
                         start();
                 }
 
-                console.log(event);
+                //console.log(event);
             });
 
             init_player();
             init_pickups();
             init_stuff();
+
+            show_status("Escape the planet");
         },
         start : function()
         {
@@ -700,7 +695,7 @@ var WinterBellsGame = (function() {
             updateInterval = setInterval(update, 18);
 
             //clearInterval(drawInterval);
-            //drawInterval = setInterval(draw, 18);
+            //drawInterval = setInterval(draw, 7);
 
             running = true;
         },
