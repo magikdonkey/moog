@@ -50,17 +50,17 @@ Explode.prototype.show = function(x, y, scale)
     }
 }
 
-Explode.prototype.update = function()
+Explode.prototype.update = function(rel)
 {
     for (var part of this.particles)
     {
-        part.x += part.dx;
-        part.y += part.dy;
+        part.x += (part.dx * rel);
+        part.y += (part.dy * rel);
         part.dy += 0.2;
         part.life -= 0.01;
         part.life = Math.max(0, part.life);
 
-        if (part.life < 0.9 && Math.random() < 0.1)
+        if (part.life < (0.3 + 0.5 * Math.random())) // && Math.random() < (0.1 * rel))
             part.colour = explode_smoke_colour();
     }
 }
@@ -73,12 +73,17 @@ Explode.prototype.draw = function(ctx)
     
     for (var part of this.particles)
     {
+        if (part.life < 0.001)
+            continue;
+
         ctx.globalAlpha = part.life;
         ctx.fillStyle = part.colour;
         //ctx.fillRect(part.x, part.y, part.life * 15, part.life * 15);
 
+        //ctx.fillRect(Math.round(part.x), Math.round(part.y), 15 * part.life * part.life, 15 * part.life * part.life);
+
         ctx.beginPath();
-        ctx.arc(Math.round(part.x), Math.round(part.y), part.size * part.life, 0, 2 * Math.PI, false);
+        ctx.arc(Math.round(part.x), Math.round(part.y), (part.size / 10) + part.size * part.life, 0, 2 * Math.PI, false);
         ctx.fill();
     }
     ctx.globalAlpha = 1;

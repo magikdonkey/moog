@@ -21,10 +21,10 @@ ItemPool.prototype.get_next = function()
     return item;
 }
 
-ItemPool.prototype.update = function()
+ItemPool.prototype.update = function(rel)
 {
     for (var item of this.items)
-        item.update();
+        item.update(rel);
 }
 
 ItemPool.prototype.draw = function(ctx)

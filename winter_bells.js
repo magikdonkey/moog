@@ -48,32 +48,32 @@ var Player = function(world)
     }
 }
 
-Player.prototype.update = function()
+Player.prototype.update = function(rel)
 {
-    this.dy += 0.3;
+    this.dy += (0.3 * rel);
 
-    this.x += this.dx;
-    this.y += this.dy;
+    this.x += (this.dx * rel);
+    this.y += (this.dy * rel);
     
     if (this.y + this.height > 0)
     {
         this.y = -this.height;
-        this.dy *= -0.3;
+        this.dy *= (-0.3 * rel);
         this.dy = Math.max(this.dy, -50);
         this.jumping = false;
     }
 
     for (var part of this.particles)
     {
-        part.x += part.dx;
-        part.y += part.dy;
-        part.dy += 0.01;
-        part.life -= 0.01;
+        part.x += (part.dx * rel);
+        part.y += (part.dy * rel);
+        part.dy += (0.01 * rel);
+        part.life -= (0.01 * rel);
         part.life = Math.max(part.life, 0);
     }
     
-    this.x = Math.round(this.x);
-    this.y = Math.round(this.y);
+    //this.x = Math.round(this.x);
+    this.y_flat = Math.round(this.y);
 }
 
 Player.prototype.draw = function(ctx)
@@ -131,11 +131,11 @@ Player.prototype.try_jump = function()
     this.jump();
 }
 
-Player.prototype.setTarget = function(x)
+Player.prototype.setTarget = function(x, rel)
 {
     var multi = this.jumping ? 0.05 : 0.05;
     if (this.x < x || this.x > x)
-        this.dx = (x - this.x) * multi;
+        this.dx = (x - this.x) * multi;// * rel;
     else
         this.dx = 0;
 }
@@ -278,9 +278,9 @@ Stuff.prototype.set_type = function(type)
     } 
 }
 
-Stuff.prototype.update = function()
+Stuff.prototype.update = function(rel)
 {
-    this.x += this.dx;
+    this.x += (this.dx * rel);
 }
 
 Stuff.prototype.draw = function(ctx)
@@ -439,20 +439,19 @@ var WinterBellsGame = (function() {
 
             stuffs.push(stuff);
         }
-
     }
 
-    function update()
+    function update(rel)
     {
-        explodes.update();
+        explodes.update(rel);
 
-        player.setTarget(mx);
-        player.update();
+        player.setTarget(mx, rel);
+        player.update(rel);
 
         for (var i = 0; i != pickups.length; ++i)
         {
             var pickup = pickups[i];
-            pickup.update();
+            pickup.update(rel);
 
             if (collison(player, pickup))
             {
@@ -493,7 +492,7 @@ var WinterBellsGame = (function() {
         for (var i = 0; i != stuffs.length; ++i)
         {
             var stuff = stuffs[i];
-            stuff.update();
+            stuff.update(rel);
 
             if (Math.abs(player.dy) < 5)
                 continue;
@@ -572,8 +571,8 @@ var WinterBellsGame = (function() {
         for (var pickup of pickups)
             pickup.draw(ctx);
 
-        ctx.translate(0, (offsetY - player.y) + hheight());
-        offsetY = player.y - hheight();
+        ctx.translate(0, (offsetY - player.y_flat) + hheight());
+        offsetY = player.y_flat - hheight();
         
         player.draw(ctx);
 
@@ -585,7 +584,7 @@ var WinterBellsGame = (function() {
         ctx.lineWidth = 2;
         ctx.font = '30px Arial'
 
-        var ytextset = player.y - hheight() + 30;
+        var ytextset = player.y_flat - hheight() + 30;
         ctx.textAlign = "left";
         ctx.strokeText("High Score\n" + Math.abs(highscore).toFixed(0), 10, ytextset);
         ctx.fillText("High Score\n" + Math.abs(highscore).toFixed(0), 10, ytextset);
@@ -597,8 +596,8 @@ var WinterBellsGame = (function() {
         if (debug)
         {
             ctx.textAlign = "center"; 
-            ctx.strokeText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
-            ctx.fillText(Math.abs(prdy).toFixed(0), world.width / 2, ytextset);
+            ctx.strokeText(Math.abs(prdy).toFixed(2), world.width / 2, ytextset + 40);
+            ctx.fillText(Math.abs(prdy).toFixed(2), world.width / 2, ytextset + 40);
         }
         
         ctx.textAlign = "center";
@@ -691,8 +690,15 @@ var WinterBellsGame = (function() {
         },
         start : function()
         {
+            var fps = 120;
+            var frameInterval = 1000 / fps;
+            var relUpdate = 60 / fps;
+
             clearInterval(updateInterval);
-            updateInterval = setInterval(update, 18);
+            updateInterval = setInterval(function()
+            {
+                update(relUpdate);
+            }, frameInterval);
 
             //clearInterval(drawInterval);
             //drawInterval = setInterval(draw, 7);
@@ -712,7 +718,7 @@ var WinterBellsGame = (function() {
             init_player();
             init_pickups();
             init_stuff();
-            draw();
+            //draw();
         }
     };
   
