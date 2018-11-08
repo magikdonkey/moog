@@ -11,7 +11,8 @@ var Explode = function()
             "y" : this.y,
             "dx" : 0,
             "dy" : 0,
-            "life" : 100
+            "life" : 100,
+            "smoke" : false
         });
     }
 
@@ -47,6 +48,7 @@ Explode.prototype.show = function(x, y, scale)
         part.dx = (3.3 * Math.random()) - 3.3;
         part.dy = (Math.random() * -5) - 10;
         part.colour = explode_colour();
+        part.smoke = false;
     }
 }
 
@@ -60,8 +62,11 @@ Explode.prototype.update = function(rel)
         part.life -= 0.01;
         part.life = Math.max(0, part.life);
 
-        if (part.life < (0.3 + 0.5 * Math.random())) // && Math.random() < (0.1 * rel))
+        if (!part.smoke && part.life < (0.3 + 0.5 * Math.random())) // && Math.random() < (0.1 * rel))
+        {
             part.colour = explode_smoke_colour();
+            part.smoke = true;
+        }
     }
 }
 
