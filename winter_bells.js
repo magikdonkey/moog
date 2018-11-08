@@ -344,12 +344,12 @@ var WinterBellsGame = (function() {
 
     var explodes = new ItemPool(10, Explode);
 
-    var status = { "message" : "" };
-
-
     // draw
     var offsetY = 0;
     var gradient = null;
+
+    // status
+    var messages = [];
 
     function init_player()
     {
@@ -357,19 +357,21 @@ var WinterBellsGame = (function() {
         player = new Player(world);
     }
 
+    function last(arr)
+    {
+        return arr[arr.length - 1];
+    }
+
     function clear_status()
     {
-        status.message = "";
+        if (messages.length > 0)
+            messages = messages.splice(1);
     }
 
     function show_status(message)
     {
-        if (message == status.message)
-            return;
-        
-        status.message = message;
-
-        setTimeout(clear_status, 2000);
+        messages.push(message);
+        setTimeout(clear_status, 5000);
     }
 
     function relocate_pickup(pickup)
@@ -527,7 +529,7 @@ var WinterBellsGame = (function() {
 
         if (player.dy < maxSpeed && player.dy < -50)
         {
-            show_status("Speed record! (" + Math.abs(player.dy).toFixed(0) + ")");
+            show_status("Speed record! (" + Math.abs(player.dy).toFixed(0) + " mph)");
             maxSpeed = Math.min(maxSpeed, player.dy);
             localStorage.maxSpeed = maxSpeed;
         }
@@ -564,7 +566,8 @@ var WinterBellsGame = (function() {
         for (var stuff of stuffs)
             stuff.draw(ctx);
         
-        world.draw(ctx);
+        if (player.y > -world.height)
+            world.draw(ctx);
 
         explodes.draw(ctx);
 
@@ -604,14 +607,17 @@ var WinterBellsGame = (function() {
         ctx.font = '20px Arial'
         
         var val = player.dy;
-        ctx.strokeText(Math.abs(val).toFixed(0) + " (" + Math.abs(maxSpeed).toFixed(0) + ")", world.width / 2, ytextset);
-        ctx.fillText(Math.abs(val).toFixed(0) + " (" + Math.abs(maxSpeed).toFixed(0) + ")", world.width / 2, ytextset);
+        ctx.strokeText(Math.abs(val).toFixed(0) + " mph (" + Math.abs(maxSpeed).toFixed(0) + " mph)", world.width / 2, ytextset);
+        ctx.fillText(Math.abs(val).toFixed(0) + " mph (" + Math.abs(maxSpeed).toFixed(0) + " mph)", world.width / 2, ytextset);
 
-        if (status.message)
+        for (var i = messages.length - 1; i >= 0; --i)
         {
-            ctx.strokeText(status.message, world.width / 2, ytextset + world.height - 40);
-            ctx.fillText(status.message, world.width / 2, ytextset + world.height - 40);
+            var offset = ((messages.length - i) * -40);
+            ctx.globalAlpha = (1 - (messages.length - i) / 10);
+            ctx.strokeText(messages[i], world.width / 2, ytextset + world.height + offset);
+            ctx.fillText(messages[i], world.width / 2, ytextset + world.height + offset);
         }
+        ctx.globalAlpha = 1;
 
         //ctx.restore();
     }
@@ -647,6 +653,8 @@ var WinterBellsGame = (function() {
                     player.y = -150000;
                 else if (event.key == "c")
                     canvas.style.cursor = canvas.style.cursor == "none" ? "crosshair" : "none";
+                else if (event.key == "h")
+                    show_status("Height = " + Math.abs(player.y).toFixed(0));
                 else if (event.key == "r")
                 {
                     if (event.altKey)
