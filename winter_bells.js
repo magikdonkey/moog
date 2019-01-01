@@ -703,9 +703,13 @@ var WinterBellsGame = (function() {
             var relUpdate = 60 / fps;
 
             clearInterval(updateInterval);
+            var delta = new Date();
             updateInterval = setInterval(function()
             {
-                update(relUpdate);
+                var now = new Date();
+                var timeRel = (now - delta) / frameInterval;
+                update(relUpdate * timeRel);
+                delta = now;
             }, frameInterval);
 
             //clearInterval(drawInterval);
