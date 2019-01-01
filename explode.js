@@ -86,9 +86,10 @@ Explode.prototype.draw = function(ctx)
         //ctx.fillRect(part.x, part.y, part.life * 15, part.life * 15);
 
         //ctx.fillRect(Math.round(part.x), Math.round(part.y), 15 * part.life * part.life, 15 * part.life * part.life);
-
+        
+        var size = part.smoke ? part.size : (part.size / 10) + part.size * part.life;
         ctx.beginPath();
-        ctx.arc(Math.round(part.x), Math.round(part.y), (part.size / 10) + part.size * part.life, 0, 2 * Math.PI, false);
+        ctx.arc(Math.round(part.x), Math.round(part.y), size, 0, 2 * Math.PI, false);
         ctx.fill();
     }
     ctx.globalAlpha = 1;
