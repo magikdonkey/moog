@@ -330,8 +330,8 @@ var WinterBellsGame = (function() {
     var my = 0;
     
     var score = 0;
-    var highscore = !Number.isNaN(localStorage.highscore) ? localStorage.highscore : 0;
-    var maxSpeed = !Number.isNaN(localStorage.maxSpeed) ? localStorage.maxSpeed : 0;
+    var highscore = localStorage.highscore > 0 ? localStorage.highscore : 0;
+    var maxSpeed = localStorage.maxSpeed > 0 ? localStorage.maxSpeed : 0;
 
     var prx = 0;
     var pry = 0;
